@@ -1,198 +1,240 @@
-```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SapSap Online</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { background-color: #000; color: white; font-family: sans-serif; }
-        .btn-active:active { transform: scale(0.95); }
-        input { outline: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SapSap Online</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body {
+    background: radial-gradient(circle at top, #0f172a, #000);
+    color: white;
+    font-family: sans-serif;
+}
+
+/* Плавное появление */
+.fade-in {
+    animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+    from {opacity:0; transform: translateY(10px);}
+    to {opacity:1; transform: translateY(0);}
+}
+
+/* Glass эффект */
+.glass {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Кнопки */
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:active {
+    transform: scale(0.92);
+}
+
+.btn:hover {
+    transform: scale(1.05);
+}
+
+/* Карточки */
+.card {
+    transition: all 0.25s ease;
+}
+
+.card:hover {
+    transform: translateY(-4px) scale(1.01);
+}
+
+/* Glow */
+.glow {
+    box-shadow: 0 0 15px rgba(59,130,246,0.5);
+}
+</style>
 </head>
+
 <body>
-    <div id="app" class="min-h-screen max-w-md mx-auto flex flex-col">
-        <!-- Контент вставляется через JavaScript -->
-    </div>
 
-    <script>
-        // Состояние приложения
-        let state = {
-            role: null,
-            isLoggedIn: false,
-            login: '',
-            address: '',
-            multiplier: 1,
-            cart: [],
-            orders: [] // Имитация базы данных через localStorage для работы без ключей
-        };
+<div id="app" class="min-h-screen max-w-md mx-auto flex flex-col"></div>
 
-        // Инициализация данных из памяти браузера
-        function loadData() {
-            const saved = localStorage.getItem('sapsap_storage');
-            if (saved) state.orders = JSON.parse(saved);
-        }
+<script>
+let state = {
+    role: null,
+    isLoggedIn: false,
+    login: '',
+    address: '',
+    multiplier: 1,
+    cart: [],
+    orders: []
+};
 
-        function saveData() {
-            localStorage.setItem('sapsap_storage', JSON.stringify(state.orders));
-            render();
-        }
+function loadData() {
+    const saved = localStorage.getItem('sapsap_storage');
+    if (saved) state.orders = JSON.parse(saved);
+}
 
-        // Функция отрисовки интерфейса
-        function render() {
-            const app = document.getElementById('app');
-            
-            // 1. Выбор роли
-            if (!state.role) {
-                app.innerHTML = `
-                    <div class="flex-1 flex flex-col items-center justify-center p-6">
-                        <h1 class="text-6xl font-black italic text-blue-500 mb-12">SapSap</h1>
-                        <div class="w-full space-y-4">
-                            <button onclick="setRole('client')" class="w-full bg-blue-600 p-6 rounded-2xl font-bold text-xl btn-active">Я Клиент</button>
-                            <button onclick="setRole('courier')" class="w-full bg-zinc-800 p-6 rounded-2xl font-bold text-xl border border-zinc-700 btn-active">Я Курьер</button>
-                        </div>
-                    </div>
-                `;
-                return;
+function saveData() {
+    localStorage.setItem('sapsap_storage', JSON.stringify(state.orders));
+    render();
+}
+
+function render() {
+    const app = document.getElementById('app');
+
+    // Роль
+    if (!state.role) {
+        app.innerHTML = `
+        <div class="flex-1 flex flex-col items-center justify-center p-6 fade-in">
+            <h1 class="text-6xl font-black italic text-blue-500 glow mb-12">SapSap</h1>
+            <div class="w-full space-y-4">
+                <button onclick="setRole('client')" class="btn w-full glass p-6 rounded-2xl font-bold text-xl">🍔 Я Клиент</button>
+                <button onclick="setRole('courier')" class="btn w-full glass p-6 rounded-2xl font-bold text-xl">🚗 Я Курьер</button>
+            </div>
+        </div>`;
+        return;
+    }
+
+    // Логин
+    if (!state.isLoggedIn) {
+        app.innerHTML = `
+        <div class="flex-1 flex flex-col justify-center p-6 fade-in">
+            <h2 class="text-2xl font-bold mb-6">Вход</h2>
+            <input id="in-login" class="glass p-4 rounded-xl mb-3 w-full" placeholder="Логин">
+            ${state.role === 'client'
+                ? `<input id="in-addr" class="glass p-4 rounded-xl mb-3 w-full" placeholder="Адрес">`
+                : `<input id="in-age" type="number" class="glass p-4 rounded-xl mb-3 w-full" placeholder="Возраст">`
             }
+            <button onclick="login()" class="btn bg-blue-600 p-4 rounded-xl font-bold glow">Войти</button>
+        </div>`;
+        return;
+    }
 
-            // 2. Вход
-            if (!state.isLoggedIn) {
-                app.innerHTML = `
-                    <div class="flex-1 flex flex-col items-center justify-center p-8">
-                        <div class="w-full space-y-4">
-                            <h2 class="text-2xl font-bold mb-4">Вход (${state.role === 'client' ? 'Клиент' : 'Курьер'})</h2>
-                            <input id="in-login" class="w-full bg-zinc-900 p-4 rounded-xl" placeholder="Логин" value="${state.login}">
-                            ${state.role === 'client' 
-                                ? `<input id="in-addr" class="w-full bg-zinc-900 p-4 rounded-xl" placeholder="Адрес">` 
-                                : `<input id="in-age" type="number" class="w-full bg-zinc-900 p-4 rounded-xl" placeholder="Возраст">`
-                            }
-                            <button onclick="login()" class="w-full bg-blue-600 py-4 rounded-xl font-bold mt-4 btn-active">Начать работу</button>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
+    // CLIENT
+    if (state.role === 'client') {
+        const myOrders = state.orders.filter(o => o.client === state.login);
 
-            // 3. Экран КЛИЕНТА
-            if (state.role === 'client') {
-                const myOrders = state.orders.filter(o => o.client === state.login);
-                app.innerHTML = `
-                    <header class="p-6 border-b border-zinc-900 flex justify-between">
-                        <span class="font-bold text-blue-500">SapSap CLIENT</span>
-                        <span class="text-zinc-500 text-xs">${state.login}</span>
-                    </header>
-                    <div class="flex-1 p-4 space-y-4 overflow-y-auto">
-                        ${state.cart.length > 0 ? `
-                            <div class="bg-blue-600/10 border border-blue-500/30 p-4 rounded-xl">
-                                <p class="text-xs font-bold mb-2">ВАШ СПИСОК:</p>
-                                ${state.cart.map(i => `<div>${i.text} x${i.qty}</div>`).join('')}
-                                <button onclick="sendOrder()" class="w-full bg-blue-600 mt-4 py-2 rounded-lg font-bold">ОТПРАВИТЬ КУРЬЕРУ</button>
-                            </div>
-                        ` : ''}
-                        ${myOrders.reverse().map(o => `
-                            <div class="bg-zinc-900 p-4 rounded-xl border border-zinc-800">
-                                <div class="flex justify-between text-xs mb-2">
-                                    <span class="text-zinc-500">Заказ #${o.id.slice(0,4)}</span>
-                                    <span class="${o.status === 'accepted' ? 'text-green-500' : 'text-orange-500'} font-bold">
-                                        ${o.status === 'accepted' ? 'Курьер в пути' : 'Поиск...'}
-                                    </span>
-                                </div>
-                                ${o.items.map(i => `<div class="text-sm">${i.text} x${i.qty}</div>`).join('')}
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="p-4 bg-zinc-950 border-t border-zinc-900 flex gap-2">
-                        <button onclick="incMult()" class="w-12 h-12 bg-zinc-800 rounded-lg font-bold text-blue-400" style="transform: scale(${1 + (state.multiplier-1)*0.05})">
-                            ×${state.multiplier}
-                        </button>
-                        <input id="msg-input" class="flex-1 bg-zinc-900 rounded-lg px-4" placeholder="Что купить?">
-                        <button onclick="addToList()" class="bg-blue-600 p-3 rounded-lg font-bold text-2xl leading-none">+</button>
-                    </div>
-                `;
-            } 
-            
-            // 4. Экран КУРЬЕРА
-            else {
-                const available = state.orders.filter(o => o.status === 'pending');
-                app.innerHTML = `
-                    <header class="p-6 border-b border-zinc-900 flex justify-between">
-                        <span class="font-bold text-green-500">SapSap DRIVE</span>
-                        <span class="text-zinc-500 text-xs">${state.login}</span>
-                    </header>
-                    <div class="flex-1 p-4 space-y-4">
-                        ${available.length === 0 ? '<p class="text-center py-20 text-zinc-600 italic">Заказов пока нет...</p>' : ''}
-                        ${available.map(o => `
-                            <div class="bg-zinc-900 p-5 rounded-2xl border border-zinc-800">
-                                <p class="font-bold text-lg">${o.client}</p>
-                                <p class="text-sm text-zinc-400 mb-4">${o.address}</p>
-                                <div class="space-y-1 mb-4 text-sm">
-                                    ${o.items.map(i => `<div>${i.text} <span class="text-blue-400 font-bold">x${i.qty}</span></div>`).join('')}
-                                </div>
-                                <button onclick="acceptOrder('${o.id}')" class="w-full bg-white text-black py-3 rounded-xl font-bold btn-active">Принять заказ</button>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            }
-        }
+        app.innerHTML = `
+        <header class="p-4 flex justify-between glass">
+            <span class="text-blue-400 font-bold">SapSap</span>
+            <span class="text-xs opacity-70">${state.login}</span>
+        </header>
 
-        // ЛОГИКА
-        function setRole(r) { state.role = r; render(); }
-        
-        function login() {
-            state.login = document.getElementById('in-login').value;
-            if (state.role === 'client') state.address = document.getElementById('in-addr').value;
-            if (state.login) { state.isLoggedIn = true; render(); }
-        }
+        <div class="flex-1 p-4 space-y-4 overflow-y-auto fade-in">
 
-        function incMult() { state.multiplier++; render(); }
+            ${state.cart.length ? `
+            <div class="glass p-4 rounded-xl card">
+                <p class="text-sm mb-2">🛒 Твой список:</p>
+                ${state.cart.map(i => `<div>${i.text} x${i.qty}</div>`).join('')}
+                <button onclick="sendOrder()" class="btn mt-3 bg-blue-600 px-4 py-2 rounded-lg">Отправить</button>
+            </div>` : ''}
 
-        function addToList() {
-            const input = document.getElementById('msg-input');
-            if (!input.value) return;
-            state.cart.push({ text: input.value, qty: state.multiplier });
-            state.multiplier = 1;
-            render();
-        }
+            ${myOrders.map(o => `
+            <div class="glass p-4 rounded-xl card">
+                <div class="flex justify-between text-xs mb-2">
+                    <span>#${o.id.slice(0,4)}</span>
+                    <span class="${o.status === 'accepted' ? 'text-green-400' : 'text-orange-400'}">
+                        ${o.status === 'accepted' ? 'В пути 🚗' : 'Поиск...'}
+                    </span>
+                </div>
+                ${o.items.map(i => `<div>${i.text} x${i.qty}</div>`).join('')}
+            </div>`).join('')}
 
-        function sendOrder() {
-            const newOrder = {
-                id: Math.random().toString(36).substr(2, 9),
-                client: state.login,
-                address: state.address,
-                items: state.cart,
-                status: 'pending'
-            };
-            state.orders.push(newOrder);
-            state.cart = [];
-            saveData();
-        }
+        </div>
 
-        function acceptOrder(id) {
-            state.orders = state.orders.map(o => o.id === id ? {...o, status: 'accepted'} : o);
-            saveData();
-            alert("Заказ принят! Посмотрите в консоль или представьте, что вы едете :)");
-        }
+        <div class="p-4 flex gap-2 glass">
+            <button onclick="incMult()" class="btn bg-zinc-800 px-4 rounded-lg">
+                x${state.multiplier}
+            </button>
+            <input id="msg-input" class="flex-1 glass px-4 rounded-lg" placeholder="Что купить?">
+            <button onclick="addToList()" class="btn bg-blue-600 px-4 rounded-lg">+</button>
+        </div>`;
+    }
 
-        // Запуск
-        loadData();
+    // COURIER
+    else {
+        const available = state.orders.filter(o => o.status === 'pending');
+
+        app.innerHTML = `
+        <header class="p-4 flex justify-between glass">
+            <span class="text-green-400 font-bold">SapSap Drive</span>
+            <span class="text-xs opacity-70">${state.login}</span>
+        </header>
+
+        <div class="p-4 space-y-4 fade-in">
+            ${available.length === 0 ? '<p class="text-center opacity-50">Нет заказов</p>' : ''}
+
+            ${available.map(o => `
+            <div class="glass p-4 rounded-xl card">
+                <p class="font-bold">${o.client}</p>
+                <p class="text-sm opacity-70">${o.address}</p>
+                <div class="my-2">
+                    ${o.items.map(i => `<div>${i.text} x${i.qty}</div>`).join('')}
+                </div>
+                <button onclick="acceptOrder('${o.id}')" class="btn bg-white text-black px-4 py-2 rounded-lg">
+                    Принять
+                </button>
+            </div>`).join('')}
+        </div>`;
+    }
+}
+
+// ЛОГИКА
+function setRole(r){ state.role = r; render(); }
+
+function login(){
+    state.login = document.getElementById('in-login').value;
+    if(state.role === 'client'){
+        state.address = document.getElementById('in-addr').value;
+    }
+    if(state.login){ state.isLoggedIn = true; render(); }
+}
+
+function incMult(){ state.multiplier++; render(); }
+
+function addToList(){
+    const input = document.getElementById('msg-input');
+    if(!input.value) return;
+    state.cart.push({text: input.value, qty: state.multiplier});
+    state.multiplier = 1;
+    render();
+}
+
+function sendOrder(){
+    const newOrder = {
+        id: Math.random().toString(36).substr(2,9),
+        client: state.login,
+        address: state.address,
+        items: state.cart,
+        status: 'pending'
+    };
+    state.orders.push(newOrder);
+    state.cart = [];
+    saveData();
+}
+
+function acceptOrder(id){
+    state.orders = state.orders.map(o => o.id === id ? {...o, status:'accepted'} : o);
+    saveData();
+}
+
+loadData();
+render();
+
+setInterval(()=>{
+    const saved = localStorage.getItem('sapsap_storage');
+    if(saved && JSON.stringify(state.orders) !== saved){
+        state.orders = JSON.parse(saved);
         render();
+    }
+},2000);
+</script>
 
-        // Авто-обновление раз в 2 секунды (имитация сети)
-        setInterval(() => {
-            const saved = localStorage.getItem('sapsap_storage');
-            if (saved && JSON.stringify(state.orders) !== saved) {
-                state.orders = JSON.parse(saved);
-                render();
-            }
-        }, 2000);
-
-    </script>
 </body>
 </html>
-
-```
-
