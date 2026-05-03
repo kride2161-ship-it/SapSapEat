@@ -14,7 +14,6 @@ body {
     font-family: sans-serif;
 }
 
-/* Плавное появление */
 .fade-in {
     animation: fadeIn 0.4s ease;
 }
@@ -24,14 +23,12 @@ body {
     to {opacity:1; transform: translateY(0);}
 }
 
-/* Glass эффект */
 .glass {
     background: rgba(255,255,255,0.05);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255,255,255,0.1);
 }
 
-/* Кнопки */
 .btn {
     transition: all 0.2s ease;
 }
@@ -44,7 +41,6 @@ body {
     transform: scale(1.05);
 }
 
-/* Карточки */
 .card {
     transition: all 0.25s ease;
 }
@@ -53,9 +49,22 @@ body {
     transform: translateY(-4px) scale(1.01);
 }
 
-/* Glow */
 .glow {
     box-shadow: 0 0 15px rgba(59,130,246,0.5);
+}
+
+.loader {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #3b82f6;
+    border-radius: 50%;
+    animation: blink 0.6s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
 }
 </style>
 </head>
@@ -65,6 +74,8 @@ body {
 <div id="app" class="min-h-screen max-w-md mx-auto flex flex-col"></div>
 
 <script>
+const API_URL = 'http://localhost:3000/api';
+
 let state = {
     role: null,
     isLoggedIn: false,
@@ -72,23 +83,79 @@ let state = {
     address: '',
     multiplier: 1,
     cart: [],
-    orders: []
+    orders: [],
+    loading: false
 };
 
-function loadData() {
-    const saved = localStorage.getItem('sapsap_storage');
-    if (saved) state.orders = JSON.parse(saved);
+async function syncOrders() {
+    try {
+        const res = await fetch(`${API_URL}/orders`);
+        if (res.ok) {
+            state.orders = await res.json();
+            render();
+        }
+    } catch (err) {
+        console.error('Ошибка синхронизации:', err);
+    }
 }
 
-function saveData() {
-    localStorage.setItem('sapsap_storage', JSON.stringify(state.orders));
+async function sendOrder() {
+    if (!state.cart.length) return;
+    
+    state.loading = true;
     render();
+
+    try {
+        const newOrder = {
+            client: state.login,
+            address: state.address,
+            items: state.cart,
+            status: 'pending'
+        };
+
+        const res = await fetch(`${API_URL}/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newOrder)
+        });
+
+        if (res.ok) {
+            state.cart = [];
+            await syncOrders();
+        }
+    } catch (err) {
+        console.error('Ошибка отправки заказа:', err);
+        alert('Ошибка при отправке заказа');
+    } finally {
+        state.loading = false;
+    }
+}
+
+async function acceptOrder(id) {
+    state.loading = true;
+    render();
+
+    try {
+        const res = await fetch(`${API_URL}/orders/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'accepted' })
+        });
+
+        if (res.ok) {
+            await syncOrders();
+        }
+    } catch (err) {
+        console.error('Ошибка принятия заказа:', err);
+        alert('Ошибка при принятии заказа');
+    } finally {
+        state.loading = false;
+    }
 }
 
 function render() {
     const app = document.getElementById('app');
 
-    // Роль
     if (!state.role) {
         app.innerHTML = `
         <div class="flex-1 flex flex-col items-center justify-center p-6 fade-in">
@@ -101,22 +168,20 @@ function render() {
         return;
     }
 
-    // Логин
     if (!state.isLoggedIn) {
         app.innerHTML = `
         <div class="flex-1 flex flex-col justify-center p-6 fade-in">
             <h2 class="text-2xl font-bold mb-6">Вход</h2>
             <input id="in-login" class="glass p-4 rounded-xl mb-3 w-full" placeholder="Логин">
             ${state.role === 'client'
-                ? `<input id="in-addr" class="glass p-4 rounded-xl mb-3 w-full" placeholder="Адрес">`
-                : `<input id="in-age" type="number" class="glass p-4 rounded-xl mb-3 w-full" placeholder="Возраст">`
-            }
+                ? `<input id="in-addr" class="glass p-4 rounded-xl mb-3 w-full" placeholder="Адрес">
+`                : `<input id="in-age" type="number" class="glass p-4 rounded-xl mb-3 w-full" placeholder="Возраст">
+`            }
             <button onclick="login()" class="btn bg-blue-600 p-4 rounded-xl font-bold glow">Войти</button>
         </div>`;
         return;
     }
 
-    // CLIENT
     if (state.role === 'client') {
         const myOrders = state.orders.filter(o => o.client === state.login);
 
@@ -132,8 +197,12 @@ function render() {
             <div class="glass p-4 rounded-xl card">
                 <p class="text-sm mb-2">🛒 Твой список:</p>
                 ${state.cart.map(i => `<div>${i.text} x${i.qty}</div>`).join('')}
-                <button onclick="sendOrder()" class="btn mt-3 bg-blue-600 px-4 py-2 rounded-lg">Отправить</button>
+                <button onclick="sendOrder()" class="btn mt-3 bg-blue-600 px-4 py-2 rounded-lg w-full ${state.loading ? 'opacity-50' : ''}">
+                    ${state.loading ? '<span class="loader"></span> Отправляю...' : 'Отправить'}
+                </button>
             </div>` : ''}
+
+            ${myOrders.length === 0 && !state.cart.length ? '<p class="text-center opacity-50 mt-8">Пока нет заказов</p>' : ''}
 
             ${myOrders.map(o => `
             <div class="glass p-4 rounded-xl card">
@@ -155,10 +224,7 @@ function render() {
             <input id="msg-input" class="flex-1 glass px-4 rounded-lg" placeholder="Что купить?">
             <button onclick="addToList()" class="btn bg-blue-600 px-4 rounded-lg">+</button>
         </div>`;
-    }
-
-    // COURIER
-    else {
+    } else {
         const available = state.orders.filter(o => o.status === 'pending');
 
         app.innerHTML = `
@@ -167,7 +233,7 @@ function render() {
             <span class="text-xs opacity-70">${state.login}</span>
         </header>
 
-        <div class="p-4 space-y-4 fade-in">
+        <div class="p-4 space-y-4 fade-in overflow-y-auto flex-1">
             ${available.length === 0 ? '<p class="text-center opacity-50">Нет заказов</p>' : ''}
 
             ${available.map(o => `
@@ -177,63 +243,49 @@ function render() {
                 <div class="my-2">
                     ${o.items.map(i => `<div>${i.text} x${i.qty}</div>`).join('')}
                 </div>
-                <button onclick="acceptOrder('${o.id}')" class="btn bg-white text-black px-4 py-2 rounded-lg">
-                    Принять
+                <button onclick="acceptOrder('${o.id}')" class="btn bg-white text-black px-4 py-2 rounded-lg w-full ${state.loading ? 'opacity-50' : ''}">
+                    ${state.loading ? 'Обработка...' : 'Принять'}
                 </button>
             </div>`).join('')}
         </div>`;
     }
 }
 
-// ЛОГИКА
-function setRole(r){ state.role = r; render(); }
-
-function login(){
-    state.login = document.getElementById('in-login').value;
-    if(state.role === 'client'){
-        state.address = document.getElementById('in-addr').value;
-    }
-    if(state.login){ state.isLoggedIn = true; render(); }
-}
-
-function incMult(){ state.multiplier++; render(); }
-
-function addToList(){
-    const input = document.getElementById('msg-input');
-    if(!input.value) return;
-    state.cart.push({text: input.value, qty: state.multiplier});
-    state.multiplier = 1;
+function setRole(r) {
+    state.role = r;
     render();
 }
 
-function sendOrder(){
-    const newOrder = {
-        id: Math.random().toString(36).substr(2,9),
-        client: state.login,
-        address: state.address,
-        items: state.cart,
-        status: 'pending'
-    };
-    state.orders.push(newOrder);
-    state.cart = [];
-    saveData();
-}
-
-function acceptOrder(id){
-    state.orders = state.orders.map(o => o.id === id ? {...o, status:'accepted'} : o);
-    saveData();
-}
-
-loadData();
-render();
-
-setInterval(()=>{
-    const saved = localStorage.getItem('sapsap_storage');
-    if(saved && JSON.stringify(state.orders) !== saved){
-        state.orders = JSON.parse(saved);
-        render();
+function login() {
+    state.login = document.getElementById('in-login').value;
+    if (state.role === 'client') {
+        state.address = document.getElementById('in-addr').value;
     }
-},2000);
+    if (state.login) {
+        state.isLoggedIn = true;
+        syncOrders();
+    }
+}
+
+function incMult() {
+    state.multiplier++;
+    render();
+}
+
+function addToList() {
+    const input = document.getElementById('msg-input');
+    if (!input.value) return;
+    state.cart.push({ text: input.value, qty: state.multiplier });
+    state.multiplier = 1;
+    input.value = '';
+    render();
+}
+
+// Синхронизация каждые 2 секунды
+setInterval(syncOrders, 2000);
+
+syncOrders();
+render();
 </script>
 
 </body>
